@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>北台灣食遊大冒險！</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-6px); }
+    }
+    @keyframes popIn {
+      0% { transform: scale(0.9); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-6px); }
+      40%, 80% { transform: translateX(6px); }
+    }
+    .animate-float { animation: float 3s ease-in-out infinite; }
+    .animate-pop { animation: popIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    .animate-shake { animation: shake 0.4s ease-in-out; }
+    
+    .city-node {
+      transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+      cursor: pointer;
+    }
+    .city-node:hover {
+      transform: scale(1.08) translateY(-2px);
+    }
+    .city-node.active {
+      ring-width: 4px;
+      transform: scale(1.1);
+    }
+  </style>
+</head>
+<body class="bg-[var(--background)] text-[var(--foreground)] antialiased min-h-screen p-4 md:p-6 select-none">
+
+  <!-- 頂部導覽與玩家狀態列 -->
+  <div class="max-w-5xl mx-auto">
+    <header class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-4 md:p-5 shadow-sm mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-2xl animate-float">
+          🚂
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-xl md:text-2xl font-bold tracking-tight text-[var(--foreground)]">北台灣食遊大冒險</h1>
+            <span id="playerTitle" class="text-xs px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-500 font-semibold border border-amber-500/30">
+              🌱 背包客新手
+            </span>
+          </div>
+          <p class="text-xs md:text-sm text-[var(--muted-foreground)] mt-0.5">
+            探索台北・新北・基隆・桃園・新竹・宜蘭的景點、美食與必買名產！
+          </p>
+        </div>
+      </div>
+
+      <!-- 積分與印章進度 -->
+      <div class="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end bg-[var(--background)] px-4 py-2.5 rounded-xl border border-[var(--border)]">
+        <div class="flex items-center gap-2">
+          <span class="text-lg">🏅</span>
+          <div>
+            <div class="text-xs text-[var(--muted-foreground)]">旅遊積分</div>
+            <div id="scoreDisplay" class="text-base font-bold text-amber-500">0 分</div>
+          </div>
+        </div>
+        <div class="h-7 w-[1px] bg-[var(--border)]"></div>
+        <div class="flex items-center gap-2">
+          <span class="text-lg">💮</span>
+          <div>
+            <div class="text-xs text-[var(--muted-foreground)]">縣市印章</div>
+            <div id="stampDisplay" class="text-base font-bold text-emerald-500">0 / 6</div>
+          </div>
+        </div>
+        <div class="h-7 w-[1px] bg-[var(--border)]"></div>
+        <div class="flex items-center gap-2">
+          <span class="text-lg">🔥</span>
+          <div>
+            <div class="text-xs text-[var(--muted-foreground)]">最高連擊</div>
+            <div id="maxComboDisplay" class="text-base font-bold text-rose-500">0</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- 模式切換 Tabs -->
+    <div class="grid grid-cols-3 gap-2 md:gap-4 mb-6">
+      <button onclick="switchMode('explore')" id="tab-explore" class="mode-tab flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm md:text-base border transition-all bg-amber-500 text-white border-amber-600 shadow-sm">
+        <span>🗺️</span>
+        <span>探索寶典</span>
+      </button>
+      <button onclick="switchMode('quiz')" id="tab-quiz" class="mode-tab flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm md:text-base border transition-all bg-[var(--card)] text-[var(--foreground)] border-[var(--border)] hover:border-amber-500/50">
+        <span>⚡</span>
+        <span>特快車問答</span>
+      </button>
+      <button onclick="switchMode('sort')" id="tab-sort" class="mode-tab flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm md:text-base border transition-all bg-[var(--card)] text-[var(--foreground)] border-[var(--border)] hover:border-amber-500/50">
+        <span>🧺</span>
+        <span>名產大進擊</span>
+      </button>
+    </div>
+
+    <!-- ==================== 模式 1：探索寶典 (互動地圖 + 圖鑑) ==================== -->
+    <section id="view-explore" class="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-pop">
+      <!-- 左側：北台灣互動雷達地圖 -->
+      <div class="lg:col-span-5 bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 flex flex-col justify-between relative overflow-hidden">
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-bold text-base flex items-center gap-2">
+              <span>🧭</span> 點擊縣市收集印章
+            </h2>
+            <span class="text-xs text-[var(--muted-foreground)]">已蓋章會亮起綠燈</span>
+          </div>
+          <p class="text-xs text-[var(--muted-foreground)] mb-4">
+            照著地理位置認識北台灣六大縣市！點選任一縣市即可查看在地必訪景點、名產與夜市美食。
+          </p>
+        </div>
+
+        <!-- 視覺化北台灣相對位置地圖 -->
+        <div class="relative w-full h-80 rounded-xl bg-sky-500/10 border border-sky-500/20 p-4 flex items-center justify-center overflow-hidden">
+          <!-- 海洋背景裝飾 -->
+          <div class="absolute top-3 left-3 text-xs text-sky-500/70 font-medium flex items-center gap-1">
+            🌊 台灣海峽
+          </div>
+          <div class="absolute bottom-3 right-3 text-xs text-sky-500/70 font-medium flex items-center gap-1">
+            🌊 太平洋 / 龜山島 🐢
+          </div>
+
+          <!-- 連接路線 SVG -->
+          <svg class="absolute inset-0 w-full h-full pointer-events-none opacity-35" viewBox="0 0 400 320">
+            <!-- 新竹 - 桃園 - 新北 - 台北 - 基隆 / 宜蘭 -->
+            <path d="M85 245 L140 175 L225 135 L235 90 L295 55" stroke="currentColor" stroke-width="3" stroke-dasharray="6,6" fill="none" />
+            <path d="M225 135 L315 210" stroke="currentColor" stroke-width="3" stroke-dasharray="6,6" fill="none" />
+            <path d="M235 90 L315 210" stroke="currentColor" stroke-width="3" stroke-dasharray="6,6" fill="none" />
+          </svg>
+
+          <!-- 基隆 (東北角頂端) -->
+          <button onclick="selectCity('keelung')" id="map-keelung" style="top: 10%; left: 64%;" class="city-node absolute px-3 py-2 rounded-xl bg-[var(--card)] border-2 border-sky-500 shadow-md flex items-center gap-1.5">
+            <span class="text-lg">🚢</span>
+            <div class="text-left">
+              <div class="text-xs font-bold leading-none">基隆</div>
+              <div class="text-xs text-[var(--muted-foreground)] mt-0.5">雨都海港</div>
+            </div>
+            <span id="stamp-badge-keelung" class="hidden text-xs ml-1">✅</span>
+          </button>
+
+          <!-- 台北 (盆地中心) -->
+          <button onclick="selectCity('taipei')" id="map-taipei" style="top: 25%; left: 46%;" class="city-node absolute px-3 py-2 rounded-xl bg-[var(--card)] border-2 border-rose-500 shadow-md flex items-center gap-1.5">
+            <span class="text-lg">🏙️</span>
+            <div class="text-left">
+              <div class="text-xs font-bold leading-none">台北</div>
+              <div class="text-xs text-[var(--muted-foreground)] mt-0.5">首都核心</div>
+            </div>
+            <span id="stamp-badge-taipei" class="hidden text-xs ml-1">✅</span>
+          </button>
+
+          <!-- 新北 (環繞台北) -->
+          <button onclick="selectCity('newtaipei')" id="map-newtaipei" style="top: 46%; left: 44%;" class="city-node absolute px-3 py-2 rounded-xl bg-[var(--card)] border-2 border-amber-500 shadow-md flex items-center gap-1.5">
+            <span class="text-lg">🏮</span>
+            <div class="text-left">
+              <div class="text-xs font-bold leading-none">新北</div>
+              <div class="text-xs text-[var(--muted-foreground)] mt-0.5">山海環繞</div>
+            </div>
+            <span id="stamp-badge-newtaipei" class="hidden text-xs ml-1">✅</span>
+          </button>
+
+          <!-- 桃園 (西北台地) -->
+          <button onclick="selectCity('taoyuan')" id="map-taoyuan" style="top: 48%; left: 16%;" class="city-node absolute px-3 py-2 rounded-xl bg-[var(--card)] border-2 border-purple-500 shadow-md flex items-center gap-1.5">
+            <span class="text-lg">✈️</span>
+            <div class="text-left">
+              <div class="text-xs font-bold leading-none">桃園</div>
+              <div class="text-xs text-[var(--muted-foreground)] mt-0.5">國門之都</div>
+            </div>
+            <span id="stamp-badge-taoyuan" class="hidden text-xs ml-1">✅</span>
+          </button>
+
+          <!-- 新竹 (西南風城) -->
+          <button onclick="selectCity('hsinchu')" id="map-hsinchu" style="top: 72%; left: 10%;" class="city-node absolute px-3 py-2 rounded-xl bg-[var(--card)] border-2 border-orange-500 shadow-md flex items-center gap-1.5">
+            <span class="text-lg">🌬️</span>
+            <div class="text-left">
+              <div class="text-xs font-bold leading-none">新竹</div>
+              <div class="text-xs text-[var(--muted-foreground)] mt-0.5">科技風城</div>
+            </div>
+            <span id="stamp-badge-hsinchu" class="hidden text-xs ml-1">✅</span>
+          </button>
+
+          <!-- 宜蘭 (東南蘭陽平原) -->
+          <button onclick="selectCity('yilan')" id="map-yilan" style="top: 64%; left: 66%;" class="city-node absolute px-3 py-2 rounded-xl bg-[var(--card)] border-2 border-emerald-500 shadow-md flex items-center gap-1.5">
+            <span class="text-lg">♨️</span>
+            <div class="text-left">
+              <div class="text-xs font-bold leading-none">宜蘭</div>
+              <div class="text-xs text-[var(--muted-foreground)] mt-0.5">蘭陽平原</div>
+            </div>
+            <span id="stamp-badge-yilan" class="hidden text-xs ml-1">✅</span>
+          </button>
+        </div>
+
+        <!-- 快速切換縣市按鈕列 -->
+        <div class="grid grid-cols-6 gap-1.5 mt-4">
+          <button onclick="selectCity('taipei')" class="text-xs py-1.5 rounded-lg border border-[var(--border)] hover:bg-rose-500/10 font-medium">台北</button>
+          <button onclick="selectCity('newtaipei')" class="text-xs py-1.5 rounded-lg border border-[var(--border)] hover:bg-amber-500/10 font-medium">新北</button>
+          <button onclick="selectCity('keelung')" class="text-xs py-1.5 rounded-lg border border-[var(--border)] hover:bg-sky-500/10 font-medium">基隆</button>
+          <button onclick="selectCity('taoyuan')" class="text-xs py-1.5 rounded-lg border border-[var(--border)] hover:bg-purple-500/10 font-medium">桃園</button>
+          <button onclick="selectCity('hsinchu')" class="text-xs py-1.5 rounded-lg border border-[var(--border)] hover:bg-orange-500/10 font-medium">新竹</button>
+          <button onclick="selectCity('yilan')" class="text-xs py-1.5 rounded-lg border border-[var(--border)] hover:bg-emerald-500/10 font-medium">宜蘭</button>
+        </div>
+      </div>
+
+      <!-- 右側：縣市深度旅遊護照卡片 -->
+      <div class="lg:col-span-7 bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 flex flex-col justify-between">
+        <div id="cityDetailCard">
+          <!-- 由 JS 動態渲染 -->
+        </div>
+
+        <!-- 底部小挑戰：在探索模式直接抽考一題 -->
+        <div class="mt-5 pt-4 border-t border-[var(--border)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div class="text-xs text-[var(--muted-foreground)] flex items-center gap-2">
+            <span class="text-base">💡</span>
+            <span id="cityFunFact">小知識載入中...</span>
+          </div>
+          <button onclick="switchMode('quiz')" class="shrink-0 text-xs font-semibold px-3.5 py-2 rounded-xl bg-amber-500 text-white hover:bg-amber-600 transition">
+            去挑戰問答拿高分 →
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 模式 2：特快車問答 (情境挑戰 Quiz) ==================== -->
+    <section id="view-quiz" class="hidden animate-pop">
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 md:p-6 max-w-3xl mx-auto">
+        <!-- 頂部狀態 -->
+        <div class="flex flex-wrap items-center justify-between gap-3 pb-4 mb-5 border-b border-[var(--border)]">
+          <div class="flex items-center gap-2">
+            <span class="text-xl">🚄</span>
+            <div>
+              <h2 class="font-bold text-base">北台灣特快車・隨堂挑戰</h2>
+              <p class="text-xs text-[var(--muted-foreground)]">根據旅遊線索猜出正確的縣市、景點或美食！</p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <!-- 題目篩選 -->
+            <select id="quizFilter" onchange="initQuiz()" class="text-xs bg-[var(--background)] text-[var(--foreground)] border border-[var(--border)] rounded-lg px-2.5 py-1.5">
+              <option value="all">🌟 全部主題 (綜合題庫)</option>
+              <option value="景點">🏞️ 必去景點篇</option>
+              <option value="美食">🍜 在地美食篇</option>
+              <option value="名產">🎁 伴手禮名產篇</option>
+            </select>
+
+            <div class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-500/15 text-amber-500 border border-amber-500/30">
+              進度：<span id="quizProgress">1 / 8</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 題目區 -->
+        <div id="quizBody">
+          <div class="mb-4 flex items-center justify-between">
+            <span id="quizCategoryBadge" class="text-xs font-semibold px-2.5 py-1 rounded-full bg-sky-500/15 text-sky-500 border border-sky-500/30">
+              🏞️ 景點題
+            </span>
+            <span id="quizComboText" class="text-xs font-bold text-rose-500 hidden">
+              🔥 連續答對 2 題！(+加成)
+            </span>
+          </div>
+
+          <h3 id="quizQuestion" class="text-lg md:text-xl font-bold mb-5 leading-snug">
+            題目載入中...
+          </h3>
+
+          <!-- 選項列表 -->
+          <div id="quizOptions" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+            <!-- JS 渲染選項 -->
+          </div>
+
+          <!-- 解說回饋區 -->
+          <div id="quizFeedback" class="hidden rounded-xl p-4 border mb-4 text-sm">
+            <!-- JS 動態顯示解說 -->
+          </div>
+
+          <div class="flex justify-end">
+            <button id="nextQuestionBtn" onclick="nextQuizQuestion()" class="hidden px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-semibold text-sm transition shadow-sm">
+              下一站出發 ➔
+            </button>
+          </div>
+        </div>
+
+        <!-- 結算畫面 -->
+        <div id="quizResult" class="hidden text-center py-6">
+          <div class="text-5xl mb-3">🎉</div>
+          <h3 class="text-xl font-bold mb-1">特快車巡禮完成！</h3>
+          <p id="quizResultComment" class="text-sm text-[var(--muted-foreground)] mb-5">
+            太厲害了！你對北台灣的吃喝玩樂瞭若指掌！
+          </p>
+          <div class="inline-flex items-center gap-6 bg-[var(--background)] border border-[var(--border)] px-6 py-3 rounded-2xl mb-6">
+            <div>
+              <div class="text-xs text-[var(--muted-foreground)]">本輪答對</div>
+              <div id="quizFinalCorrect" class="text-lg font-bold text-emerald-500">8 / 8 題</div>
+            </div>
+            <div class="h-8 w-[1px] bg-[var(--border)]"></div>
+            <div>
+              <div class="text-xs text-[var(--muted-foreground)]">累積總積分</div>
+              <div id="quizFinalScore" class="text-lg font-bold text-amber-500">0 分</div>
+            </div>
+          </div>
+          <div class="flex justify-center gap-3">
+            <button onclick="initQuiz()" class="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-semibold text-sm transition">
+              🔄 再玩一輪（隨機抽題）
+            </button>
+            <button onclick="switchMode('sort')" class="px-5 py-2.5 rounded-xl bg-[var(--background)] border border-[var(--border)] hover:border-amber-500 font-semibold text-sm transition">
+              🧺 挑戰「名產大進擊」
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 模式 3：名產大進擊 (快手配對挑戰) ==================== -->
+    <section id="view-sort" class="hidden animate-pop">
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 md:p-6 max-w-4xl mx-auto">
+        <div class="flex flex-wrap items-center justify-between gap-3 pb-4 mb-5 border-b border-[var(--border)]">
+          <div>
+            <h2 class="font-bold text-base flex items-center gap-2">
+              <span>🧺</span> 名產美食快手配對
+            </h2>
+            <p class="text-xs text-[var(--muted-foreground)]">
+              請判斷中央展示的「景點、名產或美食」屬於哪個北台灣縣市？點擊下方縣市籃子完成投遞！
+            </p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs px-3 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-500 font-semibold border border-emerald-500/30">
+              剩餘包裹：<span id="sortRemaining">10</span> 件
+            </span>
+            <button onclick="initSortGame()" class="text-xs px-3 py-1.5 rounded-lg border border-[var(--border)] hover:bg-[var(--background)]">
+              🔄 重新洗牌
+            </button>
+          </div>
+        </div>
+
+        <!-- 遊戲進行區 -->
+        <div id="sortPlayArea">
+          <!-- 中央待分類包裹卡片 -->
+          <div class="flex flex-col items-center justify-center my-4">
+            <div id="sortItemCard" class="w-full max-w-md bg-[var(--background)] border-2 border-amber-500/50 rounded-2xl p-6 text-center shadow-sm transition-all">
+              <div id="sortItemType" class="inline-block text-xs px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-500 font-semibold mb-2">
+                🎁 必買名產
+              </div>
+              <div id="sortItemEmoji" class="text-5xl my-2">🥮</div>
+              <h3 id="sortItemName" class="text-xl font-bold mb-1">李鵠鳳梨酥</h3>
+              <p id="sortItemHint" class="text-xs text-[var(--muted-foreground)]">
+                提示：百年餅店老字號，逛完廟口夜市必買伴手禮！
+              </p>
+            </div>
+
+            <!-- 即時反饋訊息 -->
+            <div id="sortToast" class="h-7 mt-3 text-sm font-semibold flex items-center justify-center"></div>
+          </div>
+
+          <!-- 六大縣市投遞籃 (每次出題動態隨機洗牌排列，防止固定位置連點盲猜) -->
+          <div id="sortBasketsContainer" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 mt-2">
+            <!-- 由 JS 動態隨機渲染 -->
+          </div>
+        </div>
+
+        <!-- 配對完成畫面 -->
+        <div id="sortCompleteArea" class="hidden text-center py-8">
+          <div class="text-5xl mb-3">🏆</div>
+          <h3 class="text-xl font-bold mb-1">10 件北台灣包裹全數配送成功！</h3>
+          <p class="text-sm text-[var(--muted-foreground)] mb-5">
+            現在你已經是名副其實的北台灣伴手禮與景點達人了！
+          </p>
+          <button onclick="initSortGame()" class="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-semibold text-sm transition">
+            🔄 再來一局新包裹
+          </button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // ==================== 北台灣六大縣市資料庫 ====================
+    const CITY_DATA = {
+      taipei: {
+        id: 'taipei',
+        name: '台北市',
+        tagline: '時尚潮流與百年老城交織的首都盆地',
+        emoji: '🏙️',
+        color: 'rose',
+        funFact: '台北101曾是世界最高大樓，裡面的巨型風阻尼球還有可愛吉祥物「Damper Baby」！',
+        attractions: [
+          { name: '台北101觀景台', icon: '🗼', desc: '信義區摩天大樓地標，俯瞰整個台北盆地夜景。' },
+          { name: '國立故宮博物院', icon: '🏛️', desc: '珍藏翠玉白菜、肉形石、毛公鼎等世界級文物。' },
+          { name: '大稻埕碼頭 & 迪化街', icon: '🏮', desc: '巴洛克式老街建築、霞海城隍廟與河岸貨櫃市集。' },
+          { name: '陽明山國家公園', icon: '🌸', desc: '火山地形溫泉、擎天崗大草原、海芋與繡球花季。' }
+        ],
+        foods: [
+          { name: '小籠湯包 & 牛肉麵', icon: '🥟', desc: '皮薄汁多十八摺小籠包，搭配紅燒或清燉牛肉麵。' },
+          { name: '饒河街福州世祖胡椒餅', icon: '🫓', desc: '貼爐炭烤酥脆餅皮，內餡滿滿青蔥與黑胡椒豬肉。' },
+          { name: '寧夏夜市蚵仔煎 & 滷肉飯', icon: '🦪', desc: '台北老字號美食聚集地，香氣撲鼻的庶民美味。' }
+        ],
+        souvenirs: [
+          { name: '佳德 / 微熱山丘鳳梨酥', icon: '🍍', desc: '金黃酥皮搭配酸甜鳳梨餡，觀光客必買第一名。' },
+          { name: '迪化街南北貨與大稻埕茶葉', icon: '🍵', desc: '百年茶行文山包種茶、烏龍茶與精緻果乾。' }
+        ]
+      },
+      newtaipei: {
+        id: 'newtaipei',
+        name: '新北市',
+        tagline: '山海環繞！從懷舊山城、天燈鐵道到浪漫夕陽海岸',
+        emoji: '🏮',
+        color: 'amber',
+        funFact: '新北市是全台灣人口最多的城市，而且把台北市完整包圍在中間喔！',
+        attractions: [
+          { name: '九份老街 & 金瓜石', icon: '🍵', desc: '蜿蜒石階掛滿紅燈籠，眺望陰陽海與基隆山美景。' },
+          { name: '野柳地質公園 (女王頭)', icon: '👑', desc: '海蝕風化形成的奇岩怪石，世界級自然地景。' },
+          { name: '平溪老街 & 十分瀑布', icon: '🏮', desc: '鐵道穿過老街，在鐵軌旁放天燈祈福、看台版尼加拉瀑布。' },
+          { name: '淡水老街 & 漁人碼頭', icon: '🌅', desc: '紅毛城古蹟巡禮，傍晚在情人橋欣賞絕美夕陽。' }
+        ],
+        foods: [
+          { name: '淡水阿給 & 魚丸湯', icon: '🍲', desc: '油豆腐鑲入冬粉、封上魚漿蒸熟，淋上特製甜辣醬！' },
+          { name: '九份手工芋圓', icon: '🥣', desc: '坐在山城茶樓一邊賞海景，一邊吃Q彈芋圓地瓜圓。' },
+          { name: '深坑老街麻辣臭豆腐', icon: '🧱', desc: '帶有獨特炭燒香氣的豆腐料理，紅燒清蒸都好吃。' }
+        ],
+        souvenirs: [
+          { name: '三峽金牛角麵包', icon: '🥐', desc: '外皮酥脆、內裡紮實充滿奶油香的牛角造型烘焙名產。' },
+          { name: '淡水阿婆鐵蛋 & 魚酥', icon: '🥚', desc: '反覆滷製風乾、越嚼越香的超Q鐵蛋與香脆魚酥。' },
+          { name: '坪林文山包種茶 & 鶯歌陶瓷', icon: '🏺', desc: '清香回甘的坪林好茶，配上手工鶯歌特色茶具。' }
+        ]
+      },
+      keelung: {
+        id: 'keelung',
+        name: '基隆市',
+        tagline: '色彩繽紛的雨都海港，全台密度最高的海鮮夜市天堂',
+        emoji: '🚢',
+        color: 'sky',
+        funFact: '基隆廟口夜市有超過 200 個攤位，連招牌都有統一中英日文編號，找美食超方便！',
+        attractions: [
+          { name: '正濱漁港彩色屋', icon: '🎨', desc: '繽紛馬卡龍色系港邊小屋，被譽為台版威尼斯彩色島。' },
+          { name: '和平島地質公園', icon: '🏝️', desc: '萬年海蝕奇岩、天然海水泳池與壯闊海景步道。' },
+          { name: '潮境公園 & 海科館', icon: '🧹', desc: '巨型飛天掃帚裝置藝術，遠眺九份山城與基隆嶼。' }
+        ],
+        foods: [
+          { name: '廟口鼎邊趖 & 天婦羅', icon: '🍜', desc: '米漿沿鍋邊澆淋成Q滑麵皮，搭配鮮甜海鮮高湯。' },
+          { name: '營養三明治 & 泡泡冰', icon: '🥪', desc: '炸得金黃酥脆的麵包夾入滷蛋火腿小黃瓜，配綿密花生泡泡冰。' },
+          { name: '奶油螃蟹 & 炭烤吉古拉', icon: '🦀', desc: '基隆特有塗抹魚漿炭烤的「竹輪(吉古拉)」，鮮味十足！' }
+        ],
+        souvenirs: [
+          { name: '李鵠餅店鳳梨酥 / 草莓酥', icon: '🥮', desc: '創立於清光緒年間的百年老店，傳統古早味糕餅。' },
+          { name: '連珍芋泥球 & 泉利米香', icon: '🟣', desc: '綿密濃郁不甜膩的純手工芋泥球，芋頭控必買。' }
+        ]
+      },
+      taoyuan: {
+        id: 'taoyuan',
+        name: '桃園市',
+        tagline: '連結世界的國門之都，融合客家、眷村、閩南與泰雅文化',
+        emoji: '✈️',
+        color: 'purple',
+        funFact: '桃園台地以前有上千口人工灌溉池塘，從飛機往下看像滿天星星，因此被稱為「千塘之鄉」！',
+        attractions: [
+          { name: '大溪老街 & 巴洛克牌樓', icon: '🏛️', desc: '日治時期華麗石雕牌樓、木藝生態博物館與大溪橋。' },
+          { name: '石門水庫 & 小烏來天空步道', icon: '🏞️', desc: '乘船遊湖賞楓紅、走上透明玻璃步道俯瞰瀑布。' },
+          { name: '拉拉山巨木群 & Xpark水族館', icon: '🌲', desc: '千年紅檜神木森林浴，或到青埔看企鵝與夢幻水母牆。' }
+        ],
+        foods: [
+          { name: '大溪現滷黑豆干', icon: '🍢', desc: '老街現場熱騰騰滷製的烏豆干、素肚、百頁，淋上蒜蓉辣椒。' },
+          { name: '中壢忠貞市場米干', icon: '🍜', desc: '滇緬眷村特色美食！純米手工米干加上紹子肉醬、豬肝與半熟蛋。' },
+          { name: '石門水庫活魚三吃', icon: '🐟', desc: '糖醋魚、砂鍋魚頭、蒜泥魚片，超澎湃的湖畔料理。' }
+        ],
+        souvenirs: [
+          { name: '龍潭花生糖 & 大溪豆干禮盒', icon: '🥜', desc: '軟Q不黏牙的花生糖，以及真空包裝五香沙茶豆干。' },
+          { name: '大溪月光餅 (地瓜餅)', icon: '🥮', desc: '香甜綿密的地瓜內餡薄餅，在地人中秋與日常最愛。' }
+        ]
+      },
+      hsinchu: {
+        id: 'hsinchu',
+        name: '新竹縣市',
+        tagline: '九降風吹拂的科技風城，百年城隍廟美食與客家山林老街',
+        emoji: '🌬️',
+        color: 'orange',
+        funFact: '新竹秋季盛行強勁乾燥的「九降風」，加上充足日照，造就了風乾柿餅與新竹米粉的絕佳口感！',
+        attractions: [
+          { name: '新竹都城隍廟 & 東門城', icon: '⛩️', desc: '全台位階最高的城隍廟，廟埕被滿滿百年小吃攤包圍！' },
+          { name: '南寮漁港 (魚鱗天梯)', icon: '🪁', desc: '純白魚鱗造型消波塊、地中海風建築與國際風箏賽場。' },
+          { name: '內灣老街 & 北埔老街', icon: '🚂', desc: '搭乘內灣支線小火車、走吊橋、體驗客家擂茶文化。' },
+          { name: '六福村主題遊樂園 & 司馬庫斯', icon: '🎢', desc: '結合野生動物園與刺激遊樂設施，深山還有「上帝的部落」。' }
+        ],
+        foods: [
+          { name: '城隍廟貢丸湯 & 炒米粉', icon: '🥣', desc: '爽脆彈牙的純豬肉摃丸，配九降風吹乾的Q彈細米粉。' },
+          { name: '新竹肉圓 & 廟口鴨香飯', icon: '🍚', desc: '紅糟豬肉筍丁內餡肉圓，以及煙燻鴨肉淋上鴨油加半熟荷包蛋！' },
+          { name: '內灣野薑花粽 & 客家板條', icon: '粽', desc: '帶有淡淡野薑花清香的一口小肉粽。' }
+        ],
+        souvenirs: [
+          { name: '新埔柿餅 & 北埔客家擂茶', icon: '🍅', desc: '金黃日曬柿餅與磨入茶葉、芝麻、花生的養生擂茶粉。' },
+          { name: '福源花生醬 & 竹塹餅', icon: '🥜', desc: '濃郁吃得到顆粒的招牌花生醬，以及蔥香冬瓜豬肉內餡的竹塹餅。' }
+        ]
+      },
+      yilan: {
+        id: 'yilan',
+        name: '宜蘭縣',
+        tagline: '穿越雪山隧道即達！山海包圍的溫泉、三星蔥與田園慢活天堂',
+        emoji: '♨️',
+        color: 'emerald',
+        funFact: '宜蘭外海的「龜山島」其實是一座活火山，而且島的形狀就像一隻浮在海面上的大烏龜！',
+        attractions: [
+          { name: '礁溪溫泉公園 & 湯圍溝', icon: '♨️', desc: '罕見的平地碳酸氫鈉泉，免費泡腳池與溫泉魚咬腳體驗。' },
+          { name: '國立傳統藝術中心 & 羅東林場', icon: '🎭', desc: '紅磚老街看歌仔戲民俗表演，林業文化園區看昔日貯木池與火車。' },
+          { name: '龜山島賞鯨 & 蘭陽博物館', icon: '🐋', desc: '搭船出海尋找飛旋海豚與牛奶海，參觀單面山造型博物館。' },
+          { name: '太平山國家森林遊樂區', icon: '🚂', desc: '搭乘黃色蹦蹦車穿梭雲霧檜木林，走訪見晴懷古步道。' }
+        ],
+        foods: [
+          { name: '三星蔥油餅 & 蔥多餅', icon: '🥞', desc: '咬下去滿滿爆汁翠綠三星蔥，香酥迷人。' },
+          { name: '羅東夜市羊肉湯 & 卜肉、糕渣', icon: '🍲', desc: '國宴級外酥內嫩「糕渣」（高湯凝結油炸）與炸豬里肌「卜肉」。' },
+          { name: '蘭陽櫻桃烤鴨 (一鴨五吃)', icon: '🦆', desc: '油脂豐厚的櫻桃鴨握壽司，入口即化超邪惡！' }
+        ],
+        souvenirs: [
+          { name: '0.1公分超薄宜蘭牛舌餅', icon: '🍪', desc: '跟鹿港厚牛舌餅不同，宜蘭牛舌餅主打輕薄酥脆如餅乾！' },
+          { name: '鴨賞、膽肝 & 奶凍捲', icon: '🎁', desc: '甘蔗煙燻風味鴨賞，以及人氣諾貝爾草莓/芋頭奶凍捲。' },
+          { name: '金棗蜜餞 & 三星蔥蛋捲', icon: '🍊', desc: '宜蘭盛產金棗製成的酸甜蜜餞與鹹香蔥花蛋捲。' }
+        ]
+      }
+    };
+
+    // ==================== 特快車問答題庫 (24 題精選，每題選項皆動態隨機洗牌) ====================
+    const QUIZ_POOL = [
+      {
+        category: '景點',
+        q: '外國朋友第一次來台灣，想看「女王頭」奇岩怪石，順便去附近放天燈、逛紅燈籠山城老街，你應該帶他去哪個縣市？',
+        options: ['新北市', '基隆市', '宜蘭縣', '台北市'],
+        answer: '新北市',
+        exp: '野柳地質公園（女王頭）、平溪放天燈、九份老街都位在「新北市」喔！'
+      },
+      {
+        category: '美食',
+        q: '「油豆腐挖空塞入冬粉，用魚漿封口蒸熟，再淋上甜辣醬」——這道名叫「阿給」的經典小吃位在哪裡？',
+        options: ['新北淡水', '基隆廟口', '新竹城隍廟', '台北大稻埕'],
+        answer: '新北淡水',
+        exp: '淡水「阿給」名字源自日文「油炸豆腐 (Abura-age)」的簡稱，配淡水魚丸湯最對味！'
+      },
+      {
+        category: '景點',
+        q: '哪個縣市因為秋天盛行強勁乾燥的「九降風」，特別適合晾曬「柿餅」與「米粉」？',
+        options: ['新竹', '桃園', '宜蘭', '基隆'],
+        answer: '新竹',
+        exp: '新竹被稱為「風城」，九降風就是新埔柿餅與新竹米粉Q彈好吃的天然推手！'
+      },
+      {
+        category: '美食',
+        q: '來到宜蘭羅東夜市，有一道曾登上國宴的名菜：把雞肉高湯熬煮凍成塊後裹粉油炸，「外冷內熱」一口咬下像融化的濃湯，它叫做什麼？',
+        options: ['糕渣', '卜肉', '鼎邊趖', '阿給'],
+        answer: '糕渣',
+        exp: '宜蘭名菜「糕渣」外表溫溫的、裡面卻非常燙口，常被形容象徵宜蘭人「外冷內熱」的性格！'
+      },
+      {
+        category: '景點',
+        q: '想拍攝繽紛馬卡龍色系的「正濱漁港彩色屋」，晚上再去有統一編號招牌的夜市吃「鼎邊趖」與「營養三明治」，要去哪個城市？',
+        options: ['基隆市', '新北市', '宜蘭縣', '台北市'],
+        answer: '基隆市',
+        exp: '正濱漁港彩色屋、和平島與基隆廟口夜市都是雨都「基隆」的超人氣地標！'
+      },
+      {
+        category: '美食',
+        q: '在桃園中壢「忠貞市場」一帶，家家戶戶都愛吃純米製作、加上豬肝、肉片與半熟蛋的滇緬眷村美食，請問是什麼？',
+        options: ['米干', '米粉', '鼎邊趖', '板條'],
+        answer: '米干',
+        exp: '中壢龍岡忠貞市場是著名的滇緬文化聚落，「米干」更是桃園最具代表性的特色美食之一！'
+      },
+      {
+        category: '名產',
+        q: '同樣叫做「牛舌餅」，鹿港的是厚軟有內餡，而北台灣哪個縣市的牛舌餅以「0.1公分超薄酥脆」聞名？',
+        options: ['宜蘭縣', '新竹市', '桃園市', '新北市'],
+        answer: '宜蘭縣',
+        exp: '宜蘭牛舌餅主打輕薄脆口，加上三星蔥蛋捲、鴨賞與奶凍捲，是宜蘭四大伴手禮！'
+      },
+      {
+        category: '景點',
+        q: '「翠玉白菜」與「肉形石」珍藏於國立故宮博物院，請問故宮位在哪一個縣市？',
+        options: ['台北市', '新北市', '桃園市', '新竹市'],
+        answer: '台北市',
+        exp: '國立故宮博物院位於台北市士林區外雙溪，是國際觀光客來台北必訪的博物館！'
+      },
+      {
+        category: '名產',
+        q: '逛完巴洛克式牌樓老街，買了熱騰騰的現滷「黑豆干」和香脆不黏牙的「花生糖」，請問你正在哪個縣市旅遊？',
+        options: ['桃園市', '新竹縣', '新北市', '台北市'],
+        answer: '桃園市',
+        exp: '桃園大溪老街以黑豆干、月光餅聞名，鄰近的龍潭則是花生糖的故鄉！'
+      },
+      {
+        category: '美食',
+        q: '基隆人口中的特色小吃「吉古拉 (Chikuwa)」，其實是塗抹鯊魚漿在鐵棒上炭烤而成的什麼食物？',
+        options: ['手工竹輪', '甜不辣片', '糯米腸', '烤魷魚'],
+        answer: '手工竹輪',
+        exp: '日文「竹輪 (Chikuwa)」在基隆台語發音變成「吉古拉」，現烤出爐香氣十足！'
+      },
+      {
+        category: '名產',
+        q: '去新北市三峽老街走走時，空氣中總是飄著濃郁奶油香，大家人手一袋排隊購買的名產是什麼？',
+        options: ['金牛角麵包', '阿婆鐵蛋', '竹塹餅', '李鵠鳳梨酥'],
+        answer: '金牛角麵包',
+        exp: '三峽金牛角麵包外酥內Q，還有原味、菠蘿、巧克力、奶酥等十幾種口味！'
+      },
+      {
+        category: '景點',
+        q: '搭船出海賞鯨豚、遠眺外海活火山「龜山島」夢幻牛奶海，接著去礁溪泡碳酸氫鈉溫泉，這是哪個縣市的行程？',
+        options: ['宜蘭縣', '基隆市', '新北市', '桃園市'],
+        answer: '宜蘭縣',
+        exp: '龜山島與礁溪溫泉都在宜蘭！從烏石港搭船就能近距離欣賞龜山島喔。'
+      },
+      {
+        category: '美食',
+        q: '走進台北饒河街觀光夜市入口，總是大排長龍、貼在圓桶炭爐壁上烘烤出爐的爆汁美食是什麼？',
+        options: ['福州世祖胡椒餅', '三星蔥油餅', '大溪月光餅', '竹塹餅'],
+        answer: '福州世祖胡椒餅',
+        exp: '饒河街夜市的炭烤胡椒餅外殼酥脆，咬開是滿滿的黑胡椒豬肉與青蔥肉汁！'
+      },
+      {
+        category: '名產',
+        q: '新竹老字號伴手禮「福源」最出名、讓許多人抹吐司停不下來的招牌產品是什麼？',
+        options: ['顆粒花生醬', '草莓奶凍捲', '金棗蜜餞', '芋泥球'],
+        answer: '顆粒花生醬',
+        exp: '新竹福源花生醬以濃郁香氣與飽滿花生顆粒聞名全台！'
+      },
+      {
+        category: '景點',
+        q: '哪一個縣市因為早年台地上開闢了數千口灌溉埤塘，從高空俯瞰波光粼粼，而擁有「千塘之鄉」的美譽？',
+        options: ['桃園市', '宜蘭縣', '新竹縣', '新北市'],
+        answer: '桃園市',
+        exp: '桃園擁有獨特的埤塘文化，搭機降落桃園國際機場前常能從空中看到成群池塘！'
+      },
+      {
+        category: '美食',
+        q: '去新竹內灣老街搭支線小火車、走吊橋時，老街上家家戶戶都在蒸籠裡飄出淡淡花香的特色美食是什麼？',
+        options: ['野薑花粽', '鴨賞飯', '阿給', '鼎邊趖'],
+        answer: '野薑花粽',
+        exp: '內灣野薑花粽利用野薑花葉包裹並加入乾燥野薑花根粉，散發獨特清香！'
+      },
+      {
+        category: '景點',
+        q: '想要搭乘可愛的黃色「蹦蹦車」穿梭在雲霧繚繞的千年檜木林間，並走訪全球最美小路之一的「見晴懷古步道」，要去哪裡？',
+        options: ['宜蘭太平山', '台北陽明山', '桃園拉拉山', '新北金瓜石'],
+        answer: '宜蘭太平山',
+        exp: '太平山國家森林遊樂區位於宜蘭大同鄉，昔日運材鐵道改建的「蹦蹦車」非常受歡迎！'
+      },
+      {
+        category: '名產',
+        q: '去基隆廟口夜市吃完美食後，想帶盒綿密濃郁的「芋泥球」或百年老店「李鵠鳳梨酥」回家，這兩家名店都在哪個縣市？',
+        options: ['基隆市', '台北市', '新北市', '桃園市'],
+        answer: '基隆市',
+        exp: '基隆連珍糕餅店的芋泥球與李鵠餅店的鳳梨酥，是基隆超人氣的兩大伴手禮！'
+      }
+    ];
+
+    // ==================== 名產大進擊配對題庫 ====================
+    const SORT_ITEMS = [
+      { name: '李鵠百年鳳梨酥', emoji: '🥮', type: '🎁 必買名產', city: 'keelung', cityName: '基隆市', hint: '廟口夜市旁創立於清光緒年間的百年糕餅店！' },
+      { name: '正濱漁港彩色屋', emoji: '🎨', type: '🏞️ 熱門景點', city: 'keelung', cityName: '基隆市', hint: '台版威尼斯！港邊一排繽紛馬卡龍色小屋。' },
+      { name: '廟口鼎邊趖 & 營養三明治', emoji: '🥪', type: '🍜 在地美食', city: 'keelung', cityName: '基隆市', hint: '雨都海港最著名的夜市雙招牌小吃！' },
+      { name: '大溪現滷黑豆干', emoji: '🍢', type: '🍜 在地美食', city: 'taoyuan', cityName: '桃園市', hint: '巴洛克牌樓老街必吃，烏黑入味的滷豆干與素肚。' },
+      { name: '龍岡忠貞市場米干', emoji: '🍜', type: '🍜 在地美食', city: 'taoyuan', cityName: '桃園市', hint: '國門之都特有的滇緬眷村純米麵食！' },
+      { name: '石門水庫活魚 & 龍潭花生糖', emoji: '🐟', type: '🎁 必買名產', city: 'taoyuan', cityName: '桃園市', hint: '千塘之鄉的湖畔大餐與軟Q不黏牙伴手禮。' },
+      { name: '新埔日曬柿餅', emoji: '🍅', type: '🎁 必買名產', city: 'hsinchu', cityName: '新竹縣市', hint: '靠著秋季強勁「九降風」吹拂乾燥而成的金黃果乾。' },
+      { name: '城隍廟貢丸炒米粉', emoji: '🥣', type: '🍜 在地美食', city: 'hsinchu', cityName: '新竹縣市', hint: '科技風城最具代表性的廟口雙寶！' },
+      { name: '北埔客家擂茶 & 福源花生醬', emoji: '🥜', type: '🎁 必買名產', city: 'hsinchu', cityName: '新竹縣市', hint: '自己動手研磨的客家養生茶飲與超濃郁顆粒抹醬。' },
+      { name: '三星蔥油餅 & 羅東糕渣', emoji: '🥞', type: '🍜 在地美食', city: 'yilan', cityName: '宜蘭縣', hint: '蘭陽平原爆汁青蔥與羅東夜市國宴級外冷內熱點心。' },
+      { name: '0.1公分超薄牛舌餅 & 奶凍捲', emoji: '🍪', type: '🎁 必買名產', city: 'yilan', cityName: '宜蘭縣', hint: '穿越雪隧必買！輕薄如餅乾的香脆伴手禮與甜點。' },
+      { name: '龜山島賞鯨 & 礁溪溫泉', emoji: '🐋', type: '🏞️ 熱門景點', city: 'yilan', cityName: '宜蘭縣', hint: '出海看活火山牛奶海，回程泡平地碳酸氫鈉美人湯！' },
+      { name: '三峽金牛角 & 淡水阿婆鐵蛋', emoji: '🥐', type: '🎁 必買名產', city: 'newtaipei', cityName: '新北市', hint: '山海環繞大城的老街雙星名產！' },
+      { name: '九份紅燈籠山城 & 野柳女王頭', emoji: '🏮', type: '🏞️ 熱門景點', city: 'newtaipei', cityName: '新北市', hint: '一邊是山城芋圓茶樓，一邊是北海岸海蝕奇岩。' },
+      { name: '淡水阿給 & 深坑臭豆腐', emoji: '🍲', type: '🍜 在地美食', city: 'newtaipei', cityName: '新北市', hint: '油豆腐鑲冬粉淋甜辣醬，還有炭香十足的老街豆腐。' },
+      { name: '台北101 & 大稻埕迪化街', emoji: '🗼', type: '🏞️ 熱門景點', city: 'taipei', cityName: '台北市', hint: '從摩天大樓到百年南北貨老街的首都魅力。' },
+      { name: '饒河街炭烤胡椒餅', emoji: '🫓', type: '🍜 在地美食', city: 'taipei', cityName: '台北市', hint: '貼在爐壁炭烤、咬開滿滿蔥香肉汁的首都夜市名物！' },
+      { name: '國立故宮翠玉白菜 & 陽明山花季', emoji: '🏛️', type: '🏞️ 熱門景點', city: 'taipei', cityName: '台北市', hint: '世界級博物館國寶與首都後花園火山溫泉。' }
+    ];
+
+    const SORT_BASKETS = [
+      { id: 'taipei', name: '台北市', emoji: '🏙️', sub: '首都盆地', hoverClass: 'hover:border-rose-500 hover:bg-rose-500/10' },
+      { id: 'newtaipei', name: '新北市', emoji: '🏮', sub: '環繞山海', hoverClass: 'hover:border-amber-500 hover:bg-amber-500/10' },
+      { id: 'keelung', name: '基隆市', emoji: '🚢', sub: '雨都海港', hoverClass: 'hover:border-sky-500 hover:bg-sky-500/10' },
+      { id: 'taoyuan', name: '桃園市', emoji: '✈️', sub: '國門千塘', hoverClass: 'hover:border-purple-500 hover:bg-purple-500/10' },
+      { id: 'hsinchu', name: '新竹縣市', emoji: '🌬️', sub: '九降風城', hoverClass: 'hover:border-orange-500 hover:bg-orange-500/10' },
+      { id: 'yilan', name: '宜蘭縣', emoji: '♨️', sub: '蘭陽平原', hoverClass: 'hover:border-emerald-500 hover:bg-emerald-500/10' }
+    ];
+
+    // ==================== 遊戲狀態變數 ====================
+    let score = 0;
+    let combo = 0;
+    let maxCombo = 0;
+    let collectedStamps = new Set();
+    let currentCity = 'taipei';
+
+    // Quiz 狀態
+    let currentQuizList = [];
+    let currentQuizIndex = 0;
+    let quizCorrectCount = 0;
+    let quizAnswered = false;
+    let lastCorrectOptionIndex = -1; // 紀錄上一題正確答案所在的按鈕位置，防止連續落在同一格讓玩家盲猜
+
+    // Sort 狀態
+    let currentSortQueue = [];
+    let currentSortItem = null;
+
+    // ==================== 積分與稱號更新 ====================
+    function addScore(points) {
+      score += points;
+      document.getElementById('scoreDisplay').textContent = `${score} 分`;
+      updatePlayerTitle();
+    }
+
+    function updateCombo(isCorrect) {
+      if (isCorrect) {
+        combo++;
+        if (combo > maxCombo) maxCombo = combo;
+      } else {
+        combo = 0;
+      }
+      document.getElementById('maxComboDisplay').textContent = maxCombo;
+    }
+
+    function updatePlayerTitle() {
+      const titleEl = document.getElementById('playerTitle');
+      if (score >= 500 && collectedStamps.size === 6) {
+        titleEl.textContent = '👑 北台灣觀光大使';
+      } else if (score >= 300) {
+        titleEl.textContent = '🚄 北台灣老司機';
+      } else if (score >= 120) {
+        titleEl.textContent = '🍜 夜市美食獵人';
+      } else {
+        titleEl.textContent = '🌱 背包客新手';
+      }
+    }
+
+    // ==================== 模式切換 ====================
+    function switchMode(mode) {
+      ['explore', 'quiz', 'sort'].forEach(m => {
+        const view = document.getElementById(`view-${m}`);
+        const tab = document.getElementById(`tab-${m}`);
+        if (m === mode) {
+          view.classList.remove('hidden');
+          tab.className = 'mode-tab flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm md:text-base border transition-all bg-amber-500 text-white border-amber-600 shadow-sm';
+        } else {
+          view.classList.add('hidden');
+          tab.className = 'mode-tab flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm md:text-base border transition-all bg-[var(--card)] text-[var(--foreground)] border-[var(--border)] hover:border-amber-500/50';
+        }
+      });
+
+      if (mode === 'quiz' && currentQuizList.length === 0) {
+        initQuiz();
+      }
+      if (mode === 'sort' && currentSortQueue.length === 0) {
+        initSortGame();
+      }
+    }
+
+    // ==================== 模式 1：探索寶典邏輯 ====================
+    function selectCity(cityId) {
+      currentCity = cityId;
+      const city = CITY_DATA[cityId];
+
+      // 首次探索該縣市可獲得印章與積分
+      let firstTimeBonus = false;
+      if (!collectedStamps.has(cityId)) {
+        collectedStamps.add(cityId);
+        firstTimeBonus = true;
+        addScore(20);
+        document.getElementById('stampDisplay').textContent = `${collectedStamps.size} / 6`;
+        const badge = document.getElementById(`stamp-badge-${cityId}`);
+        if (badge) badge.classList.remove('hidden');
+      }
+
+      // 更新地圖節點高亮
+      Object.keys(CITY_DATA).forEach(id => {
+        const btn = document.getElementById(`map-${id}`);
+        if (id === cityId) {
+          btn.classList.add('ring-4', 'ring-amber-500/50', 'scale-105');
+        } else {
+          btn.classList.remove('ring-4', 'ring-amber-500/50', 'scale-105');
+        }
+      });
+
+      // 渲染右側詳細卡片
+      const container = document.getElementById('cityDetailCard');
+      container.innerHTML = `
+        <div class="animate-pop">
+          <div class="flex flex-wrap items-center justify-between gap-2 pb-4 mb-4 border-b border-[var(--border)]">
+            <div class="flex items-center gap-3">
+              <span class="text-3xl">${city.emoji}</span>
+              <div>
+                <div class="flex items-center gap-2">
+                  <h2 class="text-xl font-bold">${city.name}</h2>
+                  <span class="text-xs px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-500 font-semibold border border-emerald-500/30">
+                    💮 已蓋旅遊章 ${firstTimeBonus ? '(+20分!)' : ''}
+                  </span>
+                </div>
+                <p class="text-xs text-[var(--muted-foreground)] mt-0.5">${city.tagline}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- 三大分類網格 -->
+          <div class="space-y-4">
+            <!-- 必訪景點 -->
+            <div>
+              <h3 class="text-xs font-bold uppercase tracking-wider text-sky-500 mb-2 flex items-center gap-1.5">
+                <span>🏞️</span> 代表景點 (${city.attractions.length})
+              </h3>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                ${city.attractions.map(item => `
+                  <div class="p-3 rounded-xl bg-[var(--background)] border border-[var(--border)] flex items-start gap-2.5">
+                    <span class="text-xl shrink-0">${item.icon}</span>
+                    <div>
+                      <div class="text-sm font-bold">${item.name}</div>
+                      <div class="text-xs text-[var(--muted-foreground)] leading-relaxed mt-0.5">${item.desc}</div>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+
+            <!-- 在地美食與必買名產並排 -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <h3 class="text-xs font-bold uppercase tracking-wider text-rose-500 mb-2 flex items-center gap-1.5">
+                  <span>🍜</span> 必吃在地美食
+                </h3>
+                <div class="space-y-2">
+                  ${city.foods.map(item => `
+                    <div class="p-2.5 rounded-xl bg-[var(--background)] border border-[var(--border)] flex items-start gap-2">
+                      <span class="text-lg shrink-0">${item.icon}</span>
+                      <div>
+                        <div class="text-xs font-bold">${item.name}</div>
+                        <div class="text-xs text-[var(--muted-foreground)] mt-0.5">${item.desc}</div>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+
+              <div>
+                <h3 class="text-xs font-bold uppercase tracking-wider text-amber-500 mb-2 flex items-center gap-1.5">
+                  <span>🎁</span> 必買伴手禮名產
+                </h3>
+                <div class="space-y-2">
+                  ${city.souvenirs.map(item => `
+                    <div class="p-2.5 rounded-xl bg-[var(--background)] border border-[var(--border)] flex items-start gap-2">
+                      <span class="text-lg shrink-0">${item.icon}</span>
+                      <div>
+                        <div class="text-xs font-bold">${item.name}</div>
+                        <div class="text-xs text-[var(--muted-foreground)] mt-0.5">${item.desc}</div>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('cityFunFact').textContent = `在地冷知識：${city.funFact}`;
+    }
+
+    // ==================== 模式 2：特快車問答邏輯 ====================
+    function shuffleArray(arr) {
+      const copy = [...arr];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    function initQuiz() {
+      const filter = document.getElementById('quizFilter').value;
+      let filtered = filter === 'all' ? QUIZ_POOL : QUIZ_POOL.filter(q => q.category === filter);
+      currentQuizList = shuffleArray(filtered).slice(0, 8);
+      currentQuizIndex = 0;
+      quizCorrectCount = 0;
+
+      document.getElementById('quizBody').classList.remove('hidden');
+      document.getElementById('quizResult').classList.add('hidden');
+      renderQuizQuestion();
+    }
+
+    function renderQuizQuestion() {
+      quizAnswered = false;
+      const item = currentQuizList[currentQuizIndex];
+      document.getElementById('quizProgress').textContent = `${currentQuizIndex + 1} / ${currentQuizList.length}`;
+      
+      const badgeMap = {
+        '景點': '🏞️ 必去景點題',
+        '美食': '🍜 在地美食題',
+        '名產': '🎁 伴手禮名產題'
+      };
+      document.getElementById('quizCategoryBadge').textContent = badgeMap[item.category] || '🌟 綜合題';
+      document.getElementById('quizQuestion').textContent = item.q;
+
+      // 洗牌選項，並確保正確答案不會跟上一題停留在同一個按鈕位置（防止玩家無腦連點同一個位置猜中）
+      let shuffledOptions = shuffleArray(item.options);
+      if (shuffledOptions.length > 1 && shuffledOptions.indexOf(item.answer) === lastCorrectOptionIndex) {
+        shuffledOptions = shuffleArray(item.options);
+        if (shuffledOptions.indexOf(item.answer) === lastCorrectOptionIndex) {
+          // 若還是同位置則直接與下一個位置交換
+          const idx = shuffledOptions.indexOf(item.answer);
+          const swapIdx = (idx + 1) % shuffledOptions.length;
+          [shuffledOptions[idx], shuffledOptions[swapIdx]] = [shuffledOptions[swapIdx], shuffledOptions[idx]];
+        }
+      }
+      lastCorrectOptionIndex = shuffledOptions.indexOf(item.answer);
+
+      const labels = ['A', 'B', 'C', 'D'];
+      const optionsContainer = document.getElementById('quizOptions');
+      optionsContainer.innerHTML = shuffledOptions.map((opt, idx) => `
+        <button onclick="checkQuizAnswer(this, '${opt}')" class="quiz-opt-btn text-left p-4 rounded-xl bg-[var(--background)] border-2 border-[var(--border)] hover:border-amber-500 font-semibold text-sm transition flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <span class="w-6 h-6 rounded-lg bg-amber-500/15 text-amber-500 text-xs font-bold flex items-center justify-center shrink-0">${labels[idx]}</span>
+            <span class="opt-text">${opt}</span>
+          </div>
+          <span class="opt-icon text-base"></span>
+        </button>
+      `).join('');
+
+      document.getElementById('quizFeedback').classList.add('hidden');
+      document.getElementById('nextQuestionBtn').classList.add('hidden');
+    }
+
+    function checkQuizAnswer(btnEl, selected) {
+      if (quizAnswered) return;
+      quizAnswered = true;
+
+      const item = currentQuizList[currentQuizIndex];
+      const isCorrect = selected === item.answer;
+      const allBtns = document.querySelectorAll('.quiz-opt-btn');
+
+      allBtns.forEach(btn => {
+        const text = btn.querySelector('.opt-text').textContent;
+        const icon = btn.querySelector('.opt-icon');
+        if (text === item.answer) {
+          btn.classList.remove('border-[var(--border)]');
+          btn.classList.add('border-emerald-500', 'bg-emerald-500/15');
+          icon.textContent = '⭕';
+        } else if (btn === btnEl && !isCorrect) {
+          btn.classList.remove('border-[var(--border)]');
+          btn.classList.add('border-rose-500', 'bg-rose-500/15', 'animate-shake');
+          icon.textContent = '❌';
+        }
+      });
+
+      updateCombo(isCorrect);
+      const comboTextEl = document.getElementById('quizComboText');
+      if (combo >= 2) {
+        comboTextEl.textContent = `🔥 連續答對 ${combo} 題！(+${combo * 5} 連擊分)`;
+        comboTextEl.classList.remove('hidden');
+      } else {
+        comboTextEl.classList.add('hidden');
+      }
+
+      const feedbackEl = document.getElementById('quizFeedback');
+      feedbackEl.classList.remove('hidden', 'bg-emerald-500/10', 'border-emerald-500/30', 'bg-rose-500/10', 'border-rose-500/30');
+
+      if (isCorrect) {
+        quizCorrectCount++;
+        const earned = 30 + (combo >= 2 ? combo * 5 : 0);
+        addScore(earned);
+        feedbackEl.classList.add('bg-emerald-500/10', 'border-emerald-500/30');
+        feedbackEl.innerHTML = `<div class="font-bold text-emerald-500 mb-1">🎉 答對了！獲得 +${earned} 積分</div><div class="text-xs text-[var(--foreground)]">${item.exp}</div>`;
+      } else {
+        feedbackEl.classList.add('bg-rose-500/10', 'border-rose-500/30');
+        feedbackEl.innerHTML = `<div class="font-bold text-rose-500 mb-1">💡 差一點點！正確答案是「${item.answer}」</div><div class="text-xs text-[var(--foreground)]">${item.exp}</div>`;
+      }
+
+      const nextBtn = document.getElementById('nextQuestionBtn');
+      nextBtn.textContent = currentQuizIndex === currentQuizList.length - 1 ? '查看成績單 🏁' : '下一站出發 ➔';
+      nextBtn.classList.remove('hidden');
+    }
+
+    function nextQuizQuestion() {
+      currentQuizIndex++;
+      if (currentQuizIndex >= currentQuizList.length) {
+        document.getElementById('quizBody').classList.add('hidden');
+        document.getElementById('quizResult').classList.remove('hidden');
+        document.getElementById('quizFinalCorrect').textContent = `${quizCorrectCount} / ${currentQuizList.length} 題`;
+        document.getElementById('quizFinalScore').textContent = `${score} 分`;
+      } else {
+        renderQuizQuestion();
+      }
+    }
+
+    // ==================== 模式 3：名產大進擊邏輯 ====================
+    function renderRandomSortBaskets() {
+      const container = document.getElementById('sortBasketsContainer');
+      const shuffledBaskets = shuffleArray(SORT_BASKETS);
+      container.innerHTML = shuffledBaskets.map(b => `
+        <button onclick="submitSort('${b.id}')" class="group p-3.5 rounded-xl bg-[var(--background)] border-2 border-[var(--border)] ${b.hoverClass} transition flex flex-col items-center gap-1">
+          <span class="text-2xl group-hover:scale-110 transition">${b.emoji}</span>
+          <span class="font-bold text-sm">${b.name}</span>
+          <span class="text-xs text-[var(--muted-foreground)]">${b.sub}</span>
+        </button>
+      `).join('');
+    }
+
+    function initSortGame() {
+      currentSortQueue = shuffleArray(SORT_ITEMS).slice(0, 10);
+      document.getElementById('sortPlayArea').classList.remove('hidden');
+      document.getElementById('sortCompleteArea').classList.add('hidden');
+      document.getElementById('sortToast').textContent = '';
+      nextSortItem();
+    }
+
+    function nextSortItem() {
+      document.getElementById('sortRemaining').textContent = currentSortQueue.length;
+      if (currentSortQueue.length === 0) {
+        document.getElementById('sortPlayArea').classList.add('hidden');
+        document.getElementById('sortCompleteArea').classList.remove('hidden');
+        return;
+      }
+      currentSortItem = currentSortQueue[0];
+      const card = document.getElementById('sortItemCard');
+      card.classList.remove('animate-pop');
+      void card.offsetWidth; // trigger reflow
+      card.classList.add('animate-pop');
+
+      document.getElementById('sortItemType').textContent = currentSortItem.type;
+      document.getElementById('sortItemEmoji').textContent = currentSortItem.emoji;
+      document.getElementById('sortItemName').textContent = currentSortItem.name;
+      document.getElementById('sortItemHint').textContent = `提示：${currentSortItem.hint}`;
+
+      // 每次換新包裹時，下方六個縣市籃子的順序也會隨機對調，防止固定位置盲按！
+      renderRandomSortBaskets();
+    }
+
+    function submitSort(cityId) {
+      if (!currentSortItem) return;
+      const toast = document.getElementById('sortToast');
+      const card = document.getElementById('sortItemCard');
+
+      if (cityId === currentSortItem.city) {
+        updateCombo(true);
+        const pts = 25 + (combo >= 2 ? combo * 5 : 0);
+        addScore(pts);
+        toast.className = 'h-7 mt-3 text-sm font-bold text-emerald-500 flex items-center justify-center';
+        toast.textContent = `⭕ 配送正確！「${currentSortItem.name}」就是${currentSortItem.cityName}的代表！(+${pts}分)`;
+        currentSortQueue.shift();
+        nextSortItem();
+      } else {
+        updateCombo(false);
+        card.classList.remove('animate-shake');
+        void card.offsetWidth;
+        card.classList.add('animate-shake');
+        toast.className = 'h-7 mt-3 text-sm font-bold text-rose-500 flex items-center justify-center';
+        toast.textContent = `❌ 哎呀送錯站了！再看一次提示想想看是哪個縣市？`;
+      }
+    }
+
+    // 初始化載入台北
+    window.addEventListener('DOMContentLoaded', () => {
+      selectCity('taipei');
+    });
+  </script>
+</body>
+</html>
